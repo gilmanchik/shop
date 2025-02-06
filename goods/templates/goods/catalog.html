@@ -1,5 +1,6 @@
-{% extends 'main/base.html' %}
+{% extends 'base.html' %}
 {% load static %}
+{% load goods_tags %}
 
 {% block content %}
 <div class="row">
@@ -10,10 +11,15 @@
 			Фильтры
 		</button>
 
-		<form action="" method="get" class="dropdown-menu bg-dark" data-bs-theme="dark">
+		<form action="{% if request.GET.q %}{% url 'catalog:search' %}{% else %}{% url 'catalog:index' slug_url %}{% endif %}"
+			  method="get" class="dropdown-menu bg-dark"
+			  data-bs-theme="dark">
 			<div class="form-check text-white mx-3">
-				<input class="form-check-input" type="checkbox" name="on_sale" id="flexCheckDefault" value="on">
-				<input type="hidden" name="q" value="request.GET.q">
+				<input class="form-check-input" type="checkbox" name="on_sale" id="flexCheckDefault" value="on"
+					   {% if request.GET.on_sale == 'on' %}checked{% endif %}>
+				{% if request.GET.q %}
+				<input type="hidden" name="q" value="{{ request.GET.q }}">
+				{% endif %}
 				<label class="form-check-label" for="flexCheckDefault">
 					Товары по акции
 				</label>
@@ -21,19 +27,21 @@
 			<p class="text-white mx-3 mt-3">Сортировать:</p>
 			<div class="form-check text-white mx-3">
 				<input class="form-check-input" type="radio" name="order_by" id="flexRadioDefault1" value="default"
-					   checked>
+					   {% if not request.GET.order_by or request.GET.order_by == "default" %}checked{% endif %}>
 				<label class="form-check-label" for="flexRadioDefault1">
 					По умолчанию
 				</label>
 			</div>
 			<div class="form-check text-white mx-3">
-				<input class="form-check-input" type="radio" name="order_by" id="flexRadioDefault2" value="price">
+				<input class="form-check-input" type="radio" name="order_by" id="flexRadioDefault2" value="price"
+					   {% if request.GET.order_by == 'price' %}checked{% endif %}>
 				<label class="form-check-label" for="flexRadioDefault2">
 					От дешевых к дорогим
 				</label>
 			</div>
 			<div class="form-check text-white mx-3">
-				<input class="form-check-input" type="radio" name="order_by" id="flexRadioDefault3" value="-price">
+				<input class="form-check-input" type="radio" name="order_by" id="flexRadioDefault3" value="-price"
+					   {% if request.GET.order_by == '-price' %}checked{% endif %}>
 				<label class="form-check-label" for="flexRadioDefault3">
 					От дорогих к дешевым
 				</label>
@@ -44,6 +52,13 @@
 	<!-- Карта товара -->
 
 
+	{% if request.GET.q %}
+		<h3 class="mt-4">Результаты поиска по запросу "{{ request.GET.q }}"</h3>
+		{% if not goods %}
+	    <link rel="stylesheet" href="{% static 'deps/css/my_footer_css.css' %}">
+			<h2 class="mt-4">По запросу ничего не найдено</h2>
+		{% endif %}
+	{% endif %}
 	{% for g in goods %}
 	<div class="col-lg-4 col-md-6 p-4">
 		<div class="card border-primary rounded custom-shadow">
@@ -54,9 +69,24 @@
 			{% endif %}
 			<div class="card-body">
 				<a href="{% url 'catalog:product' g.slug %}">
-					<p class="card-title">{{ g.name }}</p>
+					<p class="card-title">
+						{% autoescape off %}
+						{% if g.headline %}
+						{{ g.headline }}
+						{% else %}
+						{{ g.name }}
+						{% endif %}
+						{% endautoescape %}
+					</p>
 				</a>
-				<p class="card-text">{{ g.description|truncatechars:39 }}</p>
+				<p class="card-text">
+					{% autoescape off %}
+						{% if g.bodyline %}
+							{{ g.bodyline }}
+						{% else %}
+							{{ g.description|truncatechars:39 }}
+						{% endif %}
+					{% endautoescape %}
 				<p class="product_id">id: {{ g.display_id }}</p>
 				<div class="d-flex justify-content-between">
 					{% if g.discount %}
@@ -80,12 +110,13 @@
 
 </div>
 <!-- Пагинация -->
+{% if goods %}
 <nav aria-label="Page navigation example">
 	<ul class="pagination justify-content-center my-4">
 		<div class="custom-shadow d-flex">
 			<li class="page-item {% if not goods.has_previous %}disabled{% endif %}">
 				<a class="page-link" href="{% if goods.has_previous %}
-					?page={{ goods.previous_page_number }}
+					?{% change_params page=goods.previous_page_number %}
 					{% else %}
 					#
 					{% endif %}
@@ -93,14 +124,14 @@
 			</li>
 			{% for page in goods.paginator.page_range %}
 			{% if page >= goods.number|add:-2 and page <= goods.number|add:2 %}
-				<li class="page-item {% if goods.number == page %} active {% endif %}">
-					<a class="page-link" href="?page={{ page }}">{{ page }}</a>
-				</li>
+			<li class="page-item {% if goods.number == page %} active {% endif %}">
+				<a class="page-link" href="?{% change_params page=page %}">{{ page }}</a>
+			</li>
 			{% endif %}
 			{% endfor %}
 			<li class="page-item {% if not goods.has_next %}disabled{% endif %}">
 				<a class="page-link" href="{% if goods.has_next %}
-					?page={{ goods.next_page_number }}
+					?{% change_params page=goods.next_page_number %}
 					{% else %}
 					#
 					{% endif %}
@@ -109,6 +140,8 @@
 		</div>
 	</ul>
 </nav>
+{% endif %}
+
 {% endblock %}
 
 {% block footer %}
