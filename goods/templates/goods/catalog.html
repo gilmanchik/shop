@@ -100,7 +100,8 @@
 					{% else %}
 					<p><strong>{{ g.price }}$</strong></p>
 					{% endif %}
-					<a href="{% url 'cart:cart_add' g.slug %}" class="btn add-to-cart">
+					<a href="{% url 'cart:cart_add' %}" class="btn add-to-cart" data-product-id="{{ g.id }}">
+						{% csrf_token %}
 						<img class="mx-1" src="{% static 'deps/icons/cart-plus.svg' %}" alt="Catalog Icon"
 							 width="32" height="32">
 					</a>
