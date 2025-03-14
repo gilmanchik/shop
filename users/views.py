@@ -2,12 +2,14 @@ from django.contrib import auth, messages
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.contrib.auth.views import LoginView
+from django.core.cache import cache
 from django.db.models import Prefetch
 from django.http import HttpResponseRedirect
 from django.shortcuts import render, redirect
 from django.urls import reverse, reverse_lazy
 from django.views.generic import CreateView, UpdateView, TemplateView
 
+from common.mixins import CacheMixin
 from orders.models import Order, OrderItem
 from .forms import UserLoginForm, UserRegistrationForm, ProfileForm
 from carts.models import Cart
@@ -40,7 +42,7 @@ class UserLoginView(LoginView):
         if redirect_page and redirect_page != reverse('user:logout'):
             return redirect_page
 
-        return reverse_lazy('main:index')
+        return reverse_lazy('main:home')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -119,7 +121,7 @@ class UserRegistrationView(CreateView):
 #     return render(request, 'users/registration.html', context)
 
 
-class UserProfileView(LoginRequiredMixin, UpdateView):
+class UserProfileView(LoginRequiredMixin, CacheMixin, UpdateView):
     template_name = 'users/profile.html'
     form_class = ProfileForm
     success_url = reverse_lazy('user:profile')
@@ -134,13 +136,29 @@ class UserProfileView(LoginRequiredMixin, UpdateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['title'] = 'Личный кабинет'
-        context['orders'] = Order.objects.filter(user=self.request.user).prefetch_related(
+        orders = Order.objects.filter(user=self.request.user).prefetch_related(
             Prefetch(
                 'orderitem_set',
                 queryset=OrderItem.objects.select_related('product')
             )
         ).order_by('-id')
+        context['orders'] = self.set_get_cache(orders, f'orders_for_user{self.request.user.id}', 60)
         return context
+
+    # def get_context_data(self, **kwargs):
+    #     context = super().get_context_data(**kwargs)
+    #     context['title'] = 'Личный кабинет'
+    #     orders = cache.get(f'order_for_user_{self.request.user.id}')
+    #     if not orders:
+    #         context['orders'] = Order.objects.filter(user=self.request.user).prefetch_related(
+    #             Prefetch(
+    #                 'orderitem_set',
+    #                 queryset=OrderItem.objects.select_related('product')
+    #             )
+    #         ).order_by('-id')
+    #         cache.set(f'orders_for_user{self.request.user.id}', orders, 10)
+    #     # context['orders'] = orders
+    #     return context
 
 
 # @login_required
